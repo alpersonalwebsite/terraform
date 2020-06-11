@@ -5,8 +5,8 @@ We are going to provision...
 * 2 m4.large EC2 instances named Udacity M4
 
 Notes:
-We are not including `.tfstate` nor `.terraform` folder.
-We are going to utilize the default VPC and subnets
+1. We are not including `.tfstate` nor `.terraform` folder.
+1. We are going to utilize the default VPC and subnets
 
 ## Add your credentials to `main.tf`
 
