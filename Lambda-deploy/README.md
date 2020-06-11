@@ -51,5 +51,3 @@ aws lambda invoke --function-name greet_lambda --payload '{}' /dev/stdout
 ```shell
 terraform destroy
 ```
-
-*Note:* `terraform destroy` will delete the EC2 instances and update `terraform.tfstate` (we will have a new version)
