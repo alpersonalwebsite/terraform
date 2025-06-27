@@ -1,75 +1,111 @@
-# Provision EC2 instances
+# EC2 Provisioning with Terraform
 
-We are going to provision...
-* 4 AWS t2.micro EC2 instances named Udacity T2
-* 2 m4.large EC2 instances named Udacity M4
+## Overview
+This project provisions AWS EC2 instances using Terraform, following best practices for modularity, security, automation, and remote state management. It is designed for easy reuse and team collaboration.
 
-Notes:
-1. We are not including `.tfstate` nor `.terraform` folder.
-1. We are going to utilize the default VPC and subnets
+## Table of Contents
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Remote State Management](#remote-state-management)
+- [Module Structure](#module-structure)
+- [Usage](#usage)
+- [Customization](#customization)
+- [Testing & Validation](#testing--validation)
+- [Best Practices](#best-practices)
+- [References](#references)
 
-## Add your credentials to `main.tf`
+## Architecture
+- Modular: Separate modules for EC2 and networking
+- Parameterized: All important values are variables
+- Secure: IAM roles, least-privilege, and SSH access control
+- Automated: User data bootstraps instances
+- Remote state: S3 + DynamoDB
 
-## Initialize a working directory containing Terraform configuration files
+## Prerequisites
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.0.0
+- AWS account with permissions for EC2, S3, DynamoDB, IAM
+- AWS CLI installed
+- Go (for Terratest, optional)
 
-```shell
+## Remote State Management
+Uses an S3 bucket for state and DynamoDB for locking. All values are parameterized.
+
+### Setup (one-time)
+Replace `my-terraform-state-bucket` with your unique name:
+```sh
+aws s3api create-bucket --bucket my-terraform-state-bucket --region us-east-1
+aws s3api put-bucket-versioning --bucket my-terraform-state-bucket --versioning-configuration Status=Enabled
+aws dynamodb create-table \
+  --table-name terraform-locks \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-east-1
+```
+
+## Module Structure
+- `modules/ec2`: EC2 instance logic (type, count, tags, user data, IAM, etc.)
+- `modules/network`: Security group logic (ingress/egress rules, tags)
+- Root: Orchestrates modules, IAM, key pair, outputs, and backend
+
+## Usage
+
+### Configure AWS Credentials
+Use environment variables or `aws configure`. Never hardcode credentials.
+
+### Initialize Terraform
+```sh
 terraform init
 ```
 
-## Create execution plan
+### Customize Variables
+Override defaults via CLI or `terraform.tfvars`.
 
-```shell
+### Plan & Apply
+```sh
 terraform plan
-```
-## Apply changes 
-(aka, reach the desired state of the configuration)
-
-```shell
 terraform apply
 ```
 
-**Example output:**
-```shell
-Plan: 6 to add, 0 to change, 0 to destroy.
-
-Do you want to perform these actions?
-  Terraform will perform the actions described above.
-  Only 'yes' will be accepted to approve.
-
-  Enter a value: yes
-
-...
-...
-...
-
-aws_instance.Udacity-M4[1]: Creation complete after 44s [id=i-09f20fcc2cc881ec4]
-aws_instance.Udacity-M4[0]: Creation complete after 44s [id=i-045ce4c2e734c0bad]
-aws_instance.Udacity-T2[1]: Creation complete after 50s [id=i-035da48a57aea2265]
-aws_instance.Udacity-T2[3]: Creation complete after 50s [id=i-02ab22c94071b34b6]
-aws_instance.Udacity-T2[0]: Creation complete after 50s [id=i-056d633916dd59c9b]
-aws_instance.Udacity-T2[2]: Creation complete after 51s [id=i-08d8ac489425c8327]
-
-Apply complete! Resources: 6 added, 0 changed, 0 destroyed.
-```
-
-If you want to remove the EC2 instances `m4.large`, you can delete its resource block or comment it out.
-Then...
-```shell
-terraform plan
-
-terraform apply
-```
-
-**Example output:**
-```
-Plan: 0 to add, 0 to change, 2 to destroy.
-...
-```
-
-## Delete the resources
-
-```shell
+### Destroy
+```sh
 terraform destroy
 ```
 
-*Note:* `terraform destroy` will delete the EC2 instances and update `terraform.tfstate` (we will have a new version)
+## Customization
+- Change instance types, AMI filters, tags, security group rules, etc. via variables.
+- Add more modules for load balancers, RDS, etc.
+
+## Testing & Validation
+- **Static Analysis:** Use [Checkov](https://www.checkov.io/) for security and compliance checks:
+  ```sh
+  checkov -d .
+  ```
+- **Syntax & Formatting:**
+  ```sh
+  terraform fmt -check
+  terraform validate
+  ```
+- **Integration Testing:** Use [Terratest](https://terratest.gruntwork.io/) (Go) to write automated tests that deploy and verify your infrastructure. Example test is provided in `test/terraform_ec2_test.go`:
+  ```sh
+  cd test
+  go test -v
+  ```
+- **CI/CD:** Integrate these checks into your pipeline for every change.
+
+## Best Practices
+- Use remote state with S3 and DynamoDB.
+- Restrict S3/DynamoDB access with IAM policies (see example in repo).
+- Never commit secrets or state files to version control.
+- Use modules for reusability and clarity.
+- Parameterize all important values.
+- Use `sensitive = true` for secrets.
+- Tag resources for cost and ownership tracking.
+- Use user data for bootstrapping, but never put secrets in user data.
+
+## References
+- [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [Terratest](https://terratest.gruntwork.io/)
+- [Checkov](https://www.checkov.io/)
+- [Terraform S3 Backend](https://developer.hashicorp.com/terraform/language/settings/backends/s3)
